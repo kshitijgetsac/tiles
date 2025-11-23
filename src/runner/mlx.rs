@@ -1,5 +1,6 @@
 use crate::core::modelfile::Modelfile;
 use anyhow::{Context, Result};
+use futures_util::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::Client;
 use serde_json::{Value, json};
@@ -9,7 +10,6 @@ use std::process::Stdio;
 use std::str::FromStr;
 use std::{env, fs};
 use std::{io, process::Command};
-
 pub struct ChatResponse {
     think: String,
     reply: String,
@@ -136,6 +136,7 @@ async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
     let modelname = modelfile.from.as_ref().unwrap();
     load_model(modelname, &memory_path).await.unwrap();
     println!("Running in interactive mode");
+    // TODO: Handle "enter" key press or any key press when repl is processing an input
     loop {
         print!(">> ");
         stdout.flush().unwrap();
@@ -150,20 +151,24 @@ async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
             _ => {
                 let mut remaining_count = 6;
                 let mut g_reply: String = "".to_owned();
+                let mut python_code: String = "".to_owned();
                 loop {
                     if remaining_count > 0 {
                         let chat_start = if remaining_count == 6 { true } else { false };
-                        if let Ok(response) = chat(input, modelname, chat_start).await {
+                        if let Ok(response) = chat(input, modelname, chat_start, &python_code).await
+                        {
                             if response.reply.is_empty() {
+                                if !response.code.is_empty() {
+                                    python_code = response.code;
+                                }
                                 remaining_count = remaining_count - 1;
-                                println!("{}", response.think.dimmed())
                             } else {
                                 g_reply = response.reply.clone();
-                                println!(">> {}", response.reply.trim());
+                                println!("\n>> {}", response.reply.trim());
                                 break;
                             }
                         } else {
-                            println!(">> failed to respond");
+                            println!("\n>> failed to respond");
                             break;
                         }
                     }
@@ -203,12 +208,19 @@ async fn load_model(model_name: &str, memory_path: &str) -> Result<(), String> {
     }
 }
 
-async fn chat(input: &str, model_name: &str, chat_start: bool) -> Result<ChatResponse, String> {
+async fn chat(
+    input: &str,
+    model_name: &str,
+    chat_start: bool,
+    python_code: &str,
+) -> Result<ChatResponse, String> {
     let client = Client::new();
 
     let body = json!({
         "model": model_name,
         "chat_start": chat_start,
+        "stream": true,
+        "python_code": python_code,
         "messages": [{"role": "user", "content": input}]
     });
     let res = client
@@ -217,18 +229,55 @@ async fn chat(input: &str, model_name: &str, chat_start: bool) -> Result<ChatRes
         .send()
         .await
         .unwrap();
-    // println!("{:?}", res);
-    if res.status() == 200 {
-        let text = res.text().await.unwrap();
-        let v: Value = serde_json::from_str(&text).unwrap();
-        let content = v["choices"][0]["message"]["content"]
-            .as_str()
-            .unwrap_or("<no content>");
 
-        Ok(convert_to_chat_response(content))
-    } else {
-        Err(String::from("request failed"))
+    let mut stream = res.bytes_stream();
+    let mut accumulated = String::new();
+    let mut chat_response = ChatResponse {
+        think: String::new(),
+        reply: String::new(),
+        code: String::new(),
+    };
+    // let mut inside_python = false;
+    // let mut tag_buffer = String::new();
+    print!("\n");
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.unwrap();
+        let s = String::from_utf8_lossy(&chunk);
+        for line in s.lines() {
+            if !line.starts_with("data: ") {
+                continue;
+            }
+
+            let data = line.trim_start_matches("data: ");
+
+            if data == "[DONE]" {
+                chat_response = convert_to_chat_response(&accumulated);
+                return Ok(chat_response);
+            }
+            // Parse JSON
+            let v: Value = serde_json::from_str(data).unwrap();
+            if let Some(delta) = v["choices"][0]["delta"]["content"].as_str() {
+                accumulated.push_str(delta);
+                print!("{}", delta.dimmed());
+                use std::io::Write;
+                std::io::stdout().flush().ok();
+            }
+        }
     }
+    // println!("{:?}", res);
+    // if res.status() == 200 {
+    //     let text = res.text().await.unwrap();
+    //     let v: Value = serde_json::from_str(&text).unwrap();
+    //     let content = v["choices"][0]["message"]["content"]
+    //         .as_str()
+    //         .unwrap_or("<no content>");
+
+    //     // Ok(convert_to_chat_response(content))
+    // } else {
+    //     // Err(String::from("request failed"))
+    // }
+    // unimplemented!()
+    Err(String::from("request failed"))
 }
 
 fn convert_to_chat_response(content: &str) -> ChatResponse {
