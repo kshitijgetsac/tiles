@@ -4,12 +4,14 @@ use futures_util::StreamExt;
 use owo_colors::OwoColorize;
 use reqwest::{Client, StatusCode};
 use serde_json::{Value, json};
+use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::str::FromStr;
+use std::time::Duration;
 use std::{env, fs};
 use std::{io, process::Command};
+use tokio::time::sleep;
 pub struct ChatResponse {
     think: String,
     reply: String,
@@ -81,18 +83,23 @@ fn run_model_by_sub_process(modelfile: Modelfile) {
 }
 
 #[allow(clippy::zombie_processes)]
-pub fn start_server_daemon() -> Result<()> {
+pub async fn start_server_daemon() -> Result<()> {
     // check if the server is running
     // start server as a child process
     // save the pid in a file under ~/.config/tiles/server_pid
-    let config_dir = get_config_dir()?;
-    let server_dir = get_server_dir()?;
-    let pid_file = config_dir.join("server.pid");
-    if pid_file.exists() {
-        eprintln!("Server is already running");
+
+    if let Ok(_) = ping().await {
+        println!("server is already up");
         return Ok(());
     }
 
+    let config_dir = get_config_dir()?;
+    let server_dir = get_server_dir()?;
+    let pid_file = config_dir.join("server.pid");
+    fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
+
+    let stdout_log = File::create(config_dir.join("server.out.log"))?;
+    let stderr_log = File::create(config_dir.join("server.err.log"))?;
     let child = Command::new("uv")
         .args([
             "run",
@@ -102,10 +109,12 @@ pub fn start_server_daemon() -> Result<()> {
             "-m",
             "server.main",
         ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout_log))
+        .stderr(Stdio::from(stderr_log))
         .spawn()
         .expect("failed to start server");
+
     fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
     std::fs::write(pid_file, child.id().to_string()).unwrap();
     println!("Server started with PID {}", child.id());
@@ -127,6 +136,10 @@ pub fn stop_server_daemon() -> Result<()> {
     Ok(())
 }
 async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
+    if !cfg!(debug_assertions) {
+        let _res = start_server_daemon().await;
+        let _ = wait_until_server_is_up().await;
+    }
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     // loading the model from mem-agent via daemon server
@@ -182,12 +195,15 @@ async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
     Ok(())
 }
 
-// async fn ping() -> reqwest::Result<()> {
-//     let client = Client::new();
-//     let res = client.get("http://127.0.0.1:6969/ping").send().await?;
-//     println!("{}", res.text().await?);
-//     Ok(())
-// }
+async fn ping() -> Result<(), String> {
+    let client = Client::new();
+    let res = client.get("http://127.0.0.1:6969/ping").send().await;
+
+    match res {
+        Err(_) => Err(String::from("Server is down")),
+        _ => Ok(()),
+    }
+}
 
 async fn load_model(model_name: &str, memory_path: &str) -> Result<(), String> {
     let client = Client::new();
@@ -409,5 +425,19 @@ fn get_data_dir() -> Result<PathBuf> {
             Err(_err) => home_dir.join(".local/share"),
         };
         Ok(data_dir.join("tiles"))
+    }
+}
+
+async fn wait_until_server_is_up() {
+    loop {
+        match ping().await {
+            Ok(()) => {
+                break;
+            }
+            Err(_) => {
+                println!("tiling...");
+                sleep(Duration::from_secs(5)).await;
+            }
+        }
     }
 }

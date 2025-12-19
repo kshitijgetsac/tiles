@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV="prod" # prod is another env, try taking it from github env
+ENV="dev" # prod is another env, try taking it from github env
 REPO="tilesprivacy/tilekit" 
 # VERSION="${TILES_VERSION:-latest}"       
 VERSION="0.1.0"       
@@ -56,7 +56,10 @@ mkdir -p "${INSTALL_DIR}"
 install -m 755 "${TMPDIR}/tiles" "${INSTALL_DIR}/tiles"
 
 log "📦 Installing Python server to ${SERVER_DIR}..."
+rm -rf "${SERVER_DIR}"
+
 mkdir -p "${SERVER_DIR}"
+
 cp -r "${TMPDIR}/server"/* "${SERVER_DIR}/"
 
 log "🔧 Setting up Python environment..."
