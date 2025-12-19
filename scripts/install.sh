@@ -64,8 +64,20 @@ cp -r "${TMPDIR}/server"/* "${SERVER_DIR}/"
 
 log "🔧 Setting up Python environment..."
 cd "${SERVER_DIR}"
-uv sync --frozen || err "Dependency setup failed."
 
+# Ensure Python 3.13 is available
+if ! command -v python3.13 >/dev/null 2>&1; then
+  if [[ "$OS" == "darwin" ]]; then
+    log "Installing Python 3.13 via Homebrew..."
+    brew install python@3.13 || err "Failed to install Python 3.13"
+  else
+    err "Python 3.13 is required but not found. Please install it manually."
+  fi
+fi
+
+# Force uv to use Python 3.13
+uv venv --python python3.13
+uv sync --frozen || err "Dependency setup failed."
 rm -rf "${TMPDIR}"
 
 log "✅ Tiles installed successfully!"
