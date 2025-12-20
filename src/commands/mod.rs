@@ -32,8 +32,8 @@ pub fn check_health() {
     health::check_health();
 }
 
-pub fn start_server() {
-    let _ = mlx::start_server_daemon();
+pub async fn start_server() {
+    let _ = mlx::start_server_daemon().await;
 }
 
 pub fn stop_server() {

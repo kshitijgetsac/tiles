@@ -49,7 +49,7 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
             commands::check_health();
         }
         Commands::Server(server) => match server.command {
-            Some(ServerCommands::Start) => commands::start_server(),
+            Some(ServerCommands::Start) => commands::start_server().await,
             Some(ServerCommands::Stop) => commands::stop_server(),
             _ => println!("Expected start or stop"),
         },

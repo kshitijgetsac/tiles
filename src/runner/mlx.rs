@@ -88,7 +88,7 @@ pub async fn start_server_daemon() -> Result<()> {
     // start server as a child process
     // save the pid in a file under ~/.config/tiles/server_pid
 
-    if let Ok(_) = ping().await {
+    if (ping().await).is_ok() {
         println!("server is already up");
         return Ok(());
     }
@@ -167,14 +167,14 @@ async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
                 let mut python_code: String = "".to_owned();
                 loop {
                     if remaining_count > 0 {
-                        let chat_start = if remaining_count == 6 { true } else { false };
+                        let chat_start = remaining_count == 6;
                         if let Ok(response) = chat(input, modelname, chat_start, &python_code).await
                         {
                             if response.reply.is_empty() {
                                 if !response.code.is_empty() {
                                     python_code = response.code;
                                 }
-                                remaining_count = remaining_count - 1;
+                                remaining_count -= 1;
                             } else {
                                 g_reply = response.reply.clone();
                                 println!("\n>> {}", response.reply.trim());
@@ -272,7 +272,7 @@ async fn chat(
     let mut accumulated = String::new();
     // let mut inside_python = false;
     // let mut tag_buffer = String::new();
-    print!("\n");
+    println!();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.unwrap();
         let s = String::from_utf8_lossy(&chunk);
