@@ -12,8 +12,8 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Runs the given modelfile Path
-    Run { modelfile_path: String },
+    /// Runs the given Modelfile (runs the default model if none passed)
+    Run { modelfile_path: Option<String> },
 
     /// Checks the status of dependencies
     Health,
@@ -43,7 +43,7 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Run { modelfile_path } => {
-            commands::run(modelfile_path.as_str()).await;
+            commands::run(modelfile_path).await;
         }
         Commands::Health => {
             commands::check_health();

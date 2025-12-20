@@ -13,7 +13,7 @@ use std::{env, fs};
 use std::{io, process::Command};
 use tokio::time::sleep;
 pub struct ChatResponse {
-    think: String,
+    // think: String,
     reply: String,
     code: String,
 }
@@ -270,11 +270,6 @@ async fn chat(
 
     let mut stream = res.bytes_stream();
     let mut accumulated = String::new();
-    let mut chat_response = ChatResponse {
-        think: String::new(),
-        reply: String::new(),
-        code: String::new(),
-    };
     // let mut inside_python = false;
     // let mut tag_buffer = String::new();
     print!("\n");
@@ -289,8 +284,7 @@ async fn chat(
             let data = line.trim_start_matches("data: ");
 
             if data == "[DONE]" {
-                chat_response = convert_to_chat_response(&accumulated);
-                return Ok(chat_response);
+                return Ok(convert_to_chat_response(&accumulated));
             }
             // Parse JSON
             let v: Value = serde_json::from_str(data).unwrap();
@@ -321,7 +315,6 @@ async fn chat(
 fn convert_to_chat_response(content: &str) -> ChatResponse {
     // content.split()
     ChatResponse {
-        think: extract_think(content),
         reply: extract_reply(content),
         code: extract_python(content),
     }
@@ -347,18 +340,18 @@ fn extract_python(content: &str) -> String {
     }
 }
 
-fn extract_think(content: &str) -> String {
-    if content.contains("<think>") && content.contains("</think>") {
-        let list_a = content.split("<think>").collect::<Vec<&str>>();
-        let list_b = list_a[1].split("</think>").collect::<Vec<&str>>();
-        list_b[0].to_owned()
-    } else if content.contains("</think") {
-        let list_a = content.split("</think>").collect::<Vec<&str>>();
-        list_a[0].to_owned()
-    } else {
-        "".to_owned()
-    }
-}
+// fn extract_think(content: &str) -> String {
+//     if content.contains("<think>") && content.contains("</think>") {
+//         let list_a = content.split("<think>").collect::<Vec<&str>>();
+//         let list_b = list_a[1].split("</think>").collect::<Vec<&str>>();
+//         list_b[0].to_owned()
+//     } else if content.contains("</think") {
+//         let list_a = content.split("</think>").collect::<Vec<&str>>();
+//         list_a[0].to_owned()
+//     } else {
+//         "".to_owned()
+//     }
+// }
 
 fn get_memory_path() -> Result<String> {
     let tiles_config_dir = get_config_dir()?;

@@ -1,15 +1,26 @@
 // Module that handles CLI commands
 
+use anyhow::Result;
 use tiles::{
     core::{
         health,
-        modelfile::{self},
+        modelfile::{self, Modelfile},
     },
     runner::mlx,
 };
 
-pub async fn run(modelfile: &str) {
-    match modelfile::parse_from_file(modelfile) {
+const DEFAULT_MODELFILE: &str = "
+  FROM driaforall/mem-agent-mlx-4bit 
+";
+
+pub async fn run(modelfile: Option<String>) {
+    let modelfile_parse_result: Result<Modelfile, String> = if let Some(modelfile_str) = modelfile {
+        modelfile::parse_from_file(modelfile_str.as_str())
+    } else {
+        modelfile::parse(DEFAULT_MODELFILE)
+    };
+
+    match modelfile_parse_result {
         Ok(modelfile) => {
             mlx::run(modelfile).await;
         }
