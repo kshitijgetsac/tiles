@@ -52,7 +52,7 @@ The high-level ambitious plan for the project, in order:
 |  #  | Step                                                      | Status |
 | :-: | --------------------------------------------------------- | :----: |
 |  1  | Working prototype for the memory model                    |   ✅   |
-|  2  | Training a better standalone memory model                 |   ✅   |
+|  2  | Training a better standalone memory model                 |   ❌  |
 |  3  | Make Tiles a proxy, with local model as memory module     |   ❌   |
 |  4  | Public key cryptography with private key on device        |   ❌   |
 |  5  | AT Proto integration                                      |   ❌   |
