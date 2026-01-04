@@ -19,6 +19,29 @@
   <a href="HACKING.md">Developing</a>
 </p>
 
+There are a few ways to work with Tiles:
+
+## Tiles CLI
+The CLI is the easiest way to start using Tiles. The experience will be familiar to anyone who has worked with e.g. Ollama or LM Studio CLI. You can power it with Claude, GPT, or any other LLM. Just download Tiles, and get started with ``tiles run`` command, that runs the recommended default memory model for your device.
+
+## Tilekit SDK
+The SDK is a Modelfile based Rust library that contains all of our model deployment tech. It's the engine that powers everything else in Tiles.
+
+Define models using a Modelfile, the blueprint for creating and sharing models. Our implementation is optimized for fast, efficient local deployment across consumer platforms, starting with Apple devices.
+
+## Tiles Local GUI
+> To be released Q1 26.
+
+Use the Local GUI for chats on your laptop. It includes a REST API and an integration for OpenWebUI. The experience will feel familiar to anyone who has used chatbots like ChatGPT or Claude.
+
+## Download
+
+See the [download page](https://tiles.run/download) on the Tiles website.
+
+## Documentation
+
+See the [Tiles book](https://book.tiles.run/) on the Tiles Book website.
+
 ## About
 
 Our mission is to shape the future of software personalization with decentralized memory networks.
@@ -28,14 +51,6 @@ Tiles Privacy was born from the [User & Agents](https://userandagents.com) commu
 Tiles is built for privacy conscious users who want intelligence without renting their memory to centralized providers. Our first product is an on-device memory management system paired with an SDK that lets developers securely access user memory and create deeply personalized agent experiences.
 
 We are seeking design partners for training workloads that align with our goal of ensuring a verifiable privacy perimeter. If you're interested, please reach out to us at [hello@tiles.run](mailto:hello@tiles.run)
-
-## Download
-
-See the [download page](https://tiles.run/download) on the Tiles website.
-
-## Documentation
-
-See the [Tiles book](https://book.tiles.run/) on the Tiles Book website.
 
 ## Contributing and Developing
 
