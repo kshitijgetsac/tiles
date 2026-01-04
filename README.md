@@ -40,7 +40,7 @@ See the [download page](https://tiles.run/download) on the Tiles website.
 
 ## Documentation
 
-See the [Tiles book](https://book.tiles.run/) on the Tiles Book website.
+See the [Tiles book](https://book.tiles.run/) on the Tiles website.
 
 ## About
 
