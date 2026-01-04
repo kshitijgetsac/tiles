@@ -18,10 +18,10 @@ pub struct ChatResponse {
     code: String,
 }
 
-pub async fn run(modelfile: Modelfile) {
+pub async fn run(modelfile: Modelfile, relay_count: u32) {
     let model = modelfile.from.as_ref().unwrap();
     if model.starts_with("driaforall/mem-agent") {
-        let _res = run_model_with_server(modelfile).await;
+        let _res = run_model_with_server(modelfile, relay_count).await;
     } else {
         run_model_by_sub_process(modelfile);
     }
@@ -135,7 +135,7 @@ pub fn stop_server_daemon() -> Result<()> {
     println!("Server stopped.");
     Ok(())
 }
-async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
+async fn run_model_with_server(modelfile: Modelfile, relay_count: u32) -> reqwest::Result<()> {
     if !cfg!(debug_assertions) {
         let _res = start_server_daemon().await;
         let _ = wait_until_server_is_up().await;
@@ -162,12 +162,12 @@ async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
                 break;
             }
             _ => {
-                let mut remaining_count = 6;
+                let mut remaining_count = relay_count;
                 let mut g_reply: String = "".to_owned();
                 let mut python_code: String = "".to_owned();
                 loop {
                     if remaining_count > 0 {
-                        let chat_start = remaining_count == 6;
+                        let chat_start = remaining_count == relay_count;
                         if let Ok(response) = chat(input, modelname, chat_start, &python_code).await
                         {
                             if response.reply.is_empty() {
@@ -184,6 +184,14 @@ async fn run_model_with_server(modelfile: Modelfile) -> reqwest::Result<()> {
                             println!("\n>> failed to respond");
                             break;
                         }
+                    } else {
+                        // FIX: Handle exhausted relay count - break out of the loop
+                        eprintln!(
+                            "Relay count exhausted after {} attempts. \
+                                                        Try increasing with --relay-count flag.",
+                            relay_count
+                        );
+                        break;
                     }
                 }
                 if g_reply.is_empty() {

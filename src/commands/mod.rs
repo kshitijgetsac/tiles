@@ -13,7 +13,7 @@ const DEFAULT_MODELFILE: &str = "
   FROM driaforall/mem-agent-mlx-4bit 
 ";
 
-pub async fn run(modelfile: Option<String>) {
+pub async fn run(modelfile: Option<String>, relay_count: u32) {
     let modelfile_parse_result: Result<Modelfile, String> = if let Some(modelfile_str) = modelfile {
         modelfile::parse_from_file(modelfile_str.as_str())
     } else {
@@ -22,7 +22,7 @@ pub async fn run(modelfile: Option<String>) {
 
     match modelfile_parse_result {
         Ok(modelfile) => {
-            mlx::run(modelfile).await;
+            mlx::run(modelfile, relay_count).await;
         }
         Err(err) => println!("{}", err),
     }
