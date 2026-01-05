@@ -13,6 +13,7 @@ check:
 
 serve:
     server/.venv/bin/python3 -m server.main
+    # uv run --project server python -m server.main
 
 bundle:
     ./scripts/bundler.sh
