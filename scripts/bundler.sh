@@ -6,13 +6,14 @@ DIST_DIR="dist"
 SERVER_DIR="server"
 TARGET="release"
 
-VERSION=$(grep '^version' Cargo.toml | head -1 | awk -F'"' '{print $2}')
+VERSION=$(grep '^version' tiles/Cargo.toml | head -1 | awk -F'"' '{print $2}')
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 OUT_NAME="${BINARY_NAME}-v${VERSION}-${ARCH}-${OS}"
 
 echo "🚀 Building ${BINARY_NAME} (${TARGET} mode)..."
-cargo build --${TARGET}
+
+cargo build -p tiles --${TARGET}
 
 mkdir -p "${DIST_DIR}/tmp"
 cp "target/${TARGET}/${BINARY_NAME}" "${DIST_DIR}/tmp/"
