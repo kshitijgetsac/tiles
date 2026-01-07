@@ -20,6 +20,7 @@ from mlx_lm.generate import generate_step
 from mlx_lm.sample_utils import make_repetition_penalty, make_sampler
 
 from ..reasoning_utils import ReasoningExtractor, StreamingReasoningParser
+from ..schemas import GenerationMetrics
 
 
 def get_model_context_length(model_path: str) -> int:
@@ -475,6 +476,7 @@ class MLXRunner:
         # Track generation metrics
         start_time = time.time()
         tokens_generated = 0
+        ttft = None  # Time to first token
 
         # Create sampler with our parameters
         sampler = make_sampler(temp=temperature, top_p=top_p)
@@ -557,6 +559,9 @@ class MLXRunner:
                                 previously_yielded_length:
                             ]
                             if new_part_before_stop:
+                                # Capture time to first token
+                                if ttft is None:
+                                    ttft = time.time() - start_time
                                 if reasoning_parser:
                                     # Process through reasoning parser for formatting
                                     for (
@@ -567,6 +572,20 @@ class MLXRunner:
                                         yield formatted_token
                                 else:
                                     yield new_part_before_stop
+
+                        # Yield metrics before returning
+                        if reasoning_parser:
+                            yield from reasoning_parser.finalize()
+                        total_latency = time.time() - start_time
+                        tokens_per_second = tokens_generated / total_latency if total_latency > 0 else 0
+                        ttft_ms = (ttft * 1000) if ttft is not None else 0
+                        metrics = GenerationMetrics(
+                            ttft_ms=ttft_ms,
+                            total_tokens=tokens_generated,
+                            tokens_per_second=tokens_per_second,
+                            total_latency_s=total_latency
+                        )
+                        yield metrics
                         return  # Stop generation without yielding stop token
 
                 # Only check chat stop tokens if no native stop token found (fallback)
@@ -587,6 +606,9 @@ class MLXRunner:
                                     previously_yielded_length:
                                 ]
                                 if new_part_before_stop:
+                                    # Capture time to first token
+                                    if ttft is None:
+                                        ttft = time.time() - start_time
                                     if reasoning_parser:
                                         # Process through reasoning parser for formatting
                                         for (
@@ -597,9 +619,27 @@ class MLXRunner:
                                             yield formatted_token
                                     else:
                                         yield new_part_before_stop
+
+                            # Yield metrics before returning
+                            if reasoning_parser:
+                                yield from reasoning_parser.finalize()
+                            total_latency = time.time() - start_time
+                            tokens_per_second = tokens_generated / total_latency if total_latency > 0 else 0
+                            ttft_ms = (ttft * 1000) if ttft is not None else 0
+                            metrics = GenerationMetrics(
+                                ttft_ms=ttft_ms,
+                                total_tokens=tokens_generated,
+                                tokens_per_second=tokens_per_second,
+                                total_latency_s=total_latency
+                            )
+                            yield metrics
                             return  # Stop generation without yielding stop token
 
                 # No stop token found, process the new text
+                # Capture time to first token
+                if ttft is None:
+                    ttft = time.time() - start_time
+
                 if reasoning_parser:
                     # Process through reasoning parser for formatting
                     for formatted_token in reasoning_parser.process_token(new_text):
@@ -616,6 +656,23 @@ class MLXRunner:
         # Finalize reasoning parser if used
         if reasoning_parser:
             yield from reasoning_parser.finalize()
+
+        # Helper function to yield metrics
+        def yield_metrics():
+            total_latency = time.time() - start_time
+            tokens_per_second = tokens_generated / total_latency if total_latency > 0 else 0
+            ttft_ms = (ttft * 1000) if ttft is not None else 0  # Convert to milliseconds
+
+            metrics = GenerationMetrics(
+                ttft_ms=ttft_ms,
+                total_tokens=tokens_generated,
+                tokens_per_second=tokens_per_second,
+                total_latency_s=total_latency
+            )
+            yield metrics
+
+        # Yield metrics before finishing
+        yield from yield_metrics()
 
         # Print generation statistics if verbose
         if self.verbose:
@@ -982,7 +1039,7 @@ class MLXRunner:
                 filtered_response = response[:stop_pos].rstrip()
                 if self.verbose:
                     print(
-                        f"[DEBUG] Filtered stop token '{stop_token}' at position {stop_pos}"
+                        f"Filtered stop token '{stop_token}' at position {stop_pos}"
                     )
                 return filtered_response
 
