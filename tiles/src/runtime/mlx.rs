@@ -203,6 +203,37 @@ impl Validator for TilesHinter {}
 
 impl Helper for TilesHinter {}
 
+enum SlashCommand {
+    Continue,
+    Exit,
+    NotACommand,
+}
+
+fn handle_slash_command(input: &str, modelname: &str) -> SlashCommand {
+    if let Some(cmd) = input.strip_prefix('/') {
+        match cmd {
+            "help" | "?" => {
+                show_help(modelname);
+                SlashCommand::Continue
+            }
+            "bye" => SlashCommand::Exit,
+            "" => {
+                println!("Empty command. Type /help for available commands.");
+                SlashCommand::Continue
+            }
+            _ => {
+                println!(
+                    "Unknown command: /{}. Type /help for available commands.",
+                    cmd
+                );
+                SlashCommand::Continue
+            }
+        }
+    } else {
+        SlashCommand::NotACommand
+    }
+}
+
 fn show_help(model_name: &str) {
     println!("\n=== Tiles REPL Help ===\n");
 
@@ -249,12 +280,12 @@ async fn start_repl(mlx_runtime: &MLXRuntime, modelname: &str, run_args: &RunArg
 
     // Setup rustyline editor with hint support
     let config = Config::builder().auto_add_history(true).build();
-    let mut rl = Editor::<TilesHinter, DefaultHistory>::with_config(config).unwrap();
-    rl.set_helper(Some(TilesHinter));
+    let mut editor = Editor::<TilesHinter, DefaultHistory>::with_config(config).unwrap();
+    editor.set_helper(Some(TilesHinter));
 
     // TODO: Handle "enter" key press or any key press when repl is processing an input
     loop {
-        let readline = rl.readline(">>> ");
+        let readline = editor.readline(">>> ");
         let input = match readline {
             Ok(line) => line.trim().to_string(),
             Err(_) => {
@@ -268,31 +299,16 @@ async fn start_repl(mlx_runtime: &MLXRuntime, modelname: &str, run_args: &RunArg
         };
 
         // Handle slash commands
-        if let Some(cmd) = input.strip_prefix('/') {
-            match cmd {
-                "help" | "?" => {
-                    show_help(modelname);
-                    continue;
+        match handle_slash_command(&input, modelname) {
+            SlashCommand::Continue => continue,
+            SlashCommand::Exit => {
+                println!("Exiting interactive mode");
+                if !cfg!(debug_assertions) {
+                    let _res = mlx_runtime.stop_server_daemon().await;
                 }
-                "bye" => {
-                    println!("Exiting interactive mode");
-                    if !cfg!(debug_assertions) {
-                        let _res = mlx_runtime.stop_server_daemon().await;
-                    }
-                    break;
-                }
-                "" => {
-                    println!("Empty command. Type /help for available commands.");
-                    continue;
-                }
-                _ => {
-                    println!(
-                        "Unknown command: /{}. Type /help for available commands.",
-                        cmd
-                    );
-                    continue;
-                }
+                break;
             }
+            SlashCommand::NotACommand => {}
         }
 
         // Skip empty input
@@ -315,17 +331,19 @@ async fn start_repl(mlx_runtime: &MLXRuntime, modelname: &str, run_args: &RunArg
                         remaining_count -= 1;
                     } else {
                         g_reply = response.reply.clone();
-                        println!("\n>> {}", response.reply.trim());
+                        println!("\n{}", response.reply.trim());
                         break;
                     }
                 } else {
-                    println!("\n>> failed to respond");
+                    println!("\nFailed to respond");
                     break;
                 }
+            } else {
+                break;
             }
         }
         if g_reply.is_empty() {
-            println!(">> No reply")
+            println!("\nNo reply, try another prompt");
         }
     }
 }
