@@ -210,7 +210,6 @@ fn show_help(model_name: &str) {
     println!("  /?          Show this help message");
     println!("  /help       Show this help message");
     println!("  /bye        Exit the REPL");
-    println!("  exit        Exit the REPL (alternative to /bye)");
     println!();
 
     println!("Current Model:");
@@ -294,15 +293,6 @@ async fn start_repl(mlx_runtime: &MLXRuntime, modelname: &str, run_args: &RunArg
                     continue;
                 }
             }
-        }
-
-        // Keep "exit" for backward compatibility
-        if input == "exit" {
-            println!("Exiting interactive mode");
-            if !cfg!(debug_assertions) {
-                let _res = mlx_runtime.stop_server_daemon().await;
-            }
-            break;
         }
 
         // Skip empty input
